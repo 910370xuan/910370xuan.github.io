@@ -36,6 +36,14 @@ export interface Restaurant {
   signature_dishes: string[];
   latitude?: number;
   longitude?: number;
+
+  // Google Maps / Places API 補充資料
+  place_id?: string;
+  business_hours?: string[];
+  phone_number?: string;
+  google_maps_uri?: string;
+  website_uri?: string;
+  last_synced?: string;
 }
 
 // Menu Items table schema

@@ -1258,11 +1258,27 @@ async function runNCURestaurantSyncPipeline(): Promise<string[]> {
           headers: {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": apiKey,
-            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.regularOpeningHours,places.internationalPhoneNumber,places.nationalPhoneNumber,places.menuUri,places.websiteUri,places.location,places.photos"
+            "X-Goog-FieldMask": [
+              "places.id",
+              "places.displayName",
+              "places.formattedAddress",
+              "places.rating",
+              "places.regularOpeningHours",
+              "places.currentOpeningHours",
+              "places.internationalPhoneNumber",
+              "places.nationalPhoneNumber",
+              "places.websiteUri",
+              "places.googleMapsUri",
+              "places.location",
+              "places.photos",
+              "places.businessStatus"
+            ].join(",")
           },
           body: JSON.stringify({
             includedTypes: [type],
             maxResultCount: 20,
+            languageCode: "zh-TW",
+            regionCode: "TW",
             locationRestriction: {
               circle: {
                 center: { latitude: 24.9681, longitude: 121.1925 },
@@ -1444,16 +1460,31 @@ ${JSON.stringify(compactList, null, 2)}
       ? photoUrls[0] 
       : getRestaurantImageUrl(numericId, tags[0] || "飯", place.displayName?.text || "");
 
+    const openingHours =
+      place.currentOpeningHours?.weekdayDescriptions ||
+      place.regularOpeningHours?.weekdayDescriptions ||
+      [];
+
+    const isOpenNow =
+      typeof place.currentOpeningHours?.openNow === "boolean"
+        ? place.currentOpeningHours.openNow
+        : typeof place.regularOpeningHours?.openNow === "boolean"
+          ? place.regularOpeningHours.openNow
+          : true;
+
     const clean_restaurant = {
       restaurant_id: numericId,
       place_id: place.id,
       name: place.displayName?.text || "",
       category: tags[0] || "飯",
-      walking_distance: 3,  // default estimate from central campus points
+      walking_distance: 3, // default estimate from central campus points
       rating: typeof place.rating === "number" ? place.rating : 4.0,
       popularity: Math.floor(Math.random() * 20) + 75,
       avg_price: 110,
-      is_open: true,
+
+      // Google Places 營業狀態
+      is_open: isOpenNow,
+
       is_group_friendly: true,
       has_ac: true,
       has_seats: true,
@@ -1466,10 +1497,20 @@ ${JSON.stringify(compactList, null, 2)}
       signature_dishes: tags,
       cuisine_tags: tags,
       formatted_address: place.formattedAddress || "",
-      business_hours: place.regularOpeningHours?.weekdayDescriptions || ["星期一 – 星期日: 11:00 – 20:00"],
+
+      // Google Places 營業時間
+      business_hours: openingHours.length > 0 ? openingHours : ["營業時間待補"],
+
       phone_number: place.nationalPhoneNumber || place.internationalPhoneNumber || "無電話資訊",
       booking_method: place.websiteUri ? place.websiteUri : "電話訂位或現場候位",
-      menu_url: place.menuUri || place.websiteUri || "",
+
+      // menuUri 不是 Google Places API 正式可用欄位，不要再用 place.menuUri
+      menu_url: place.websiteUri || "",
+
+      // Google Maps / website 補充欄位
+      google_maps_uri: place.googleMapsUri || "",
+      website_uri: place.websiteUri || "",
+
       latitude: typeof place.location?.latitude === "number" ? place.location.latitude : undefined,
       longitude: typeof place.location?.longitude === "number" ? place.location.longitude : undefined,
       last_synced: new Date().toISOString()

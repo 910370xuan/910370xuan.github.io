@@ -19,6 +19,119 @@ interface CampusMapProps {
   setMapZoom: (zoom: number | ((z: number) => number)) => void;
 }
 
+const getTodayBusinessHour = (businessHours?: string[]) => {
+  if (!Array.isArray(businessHours) || businessHours.length === 0) {
+    return "營業時間待補";
+  }
+
+  const today = new Date().getDay();
+  // JS: Sunday=0, Monday=1...
+  // Google weekdayDescriptions 通常順序是 Monday ~ Sunday
+  const googleIndex = today === 0 ? 6 : today - 1;
+
+  return businessHours[googleIndex] || businessHours[0] || "營業時間待補";
+};
+
+const parseBusinessTimeToMinutes = (timeText: string): number | null => {
+  const text = timeText.trim().replace("：", ":");
+
+  const match = text.match(/(上午|下午|晚上|凌晨|中午)?\s*(\d{1,2})[:：](\d{2})/);
+  if (!match) return null;
+
+  const period = match[1] || "";
+  let hour = Number(match[2]);
+  const minute = Number(match[3]);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return null;
+  }
+
+  if ((period === "下午" || period === "晚上") && hour < 12) {
+    hour += 12;
+  }
+
+  if ((period === "上午" || period === "凌晨") && hour === 12) {
+    hour = 0;
+  }
+
+  if (period === "中午" && hour < 12) {
+    hour += 12;
+  }
+
+  return hour * 60 + minute;
+};
+
+const isRestaurantOpenNow = (businessHours?: string[]) => {
+  const todayText = getTodayBusinessHour(businessHours);
+
+  if (!todayText || todayText === "營業時間待補") {
+    return false;
+  }
+
+  if (/24\s*小時|24\s*hours|Open\s*24\s*hours/i.test(todayText)) {
+    return true;
+  }
+
+  if (/休息|公休|未營業|Closed/i.test(todayText)) {
+    return false;
+  }
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const timePart = todayText.includes(":")
+    ? todayText.slice(todayText.indexOf(":") + 1)
+    : todayText;
+
+  const segments = timePart
+    .replace(/[–—－～~至到]/g, "-")
+    .split(/[、,，;；]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  for (const segment of segments) {
+    const parts = segment.split("-").map(s => s.trim()).filter(Boolean);
+
+    if (parts.length < 2) continue;
+
+    const start = parseBusinessTimeToMinutes(parts[0]);
+    const end = parseBusinessTimeToMinutes(parts[1]);
+
+    if (start === null || end === null) continue;
+
+    // 跨日營業，例如 18:00 - 02:00
+    if (end <= start) {
+      if (nowMinutes >= start || nowMinutes < end) {
+        return true;
+      }
+    } else {
+      if (nowMinutes >= start && nowMinutes < end) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+const simplifyBusinessHour = (text: string) => {
+  return text
+    .replace("星期一", "一")
+    .replace("星期二", "二")
+    .replace("星期三", "三")
+    .replace("星期四", "四")
+    .replace("星期五", "五")
+    .replace("星期六", "六")
+    .replace("星期日", "日")
+    .replace("Monday", "一")
+    .replace("Tuesday", "二")
+    .replace("Wednesday", "三")
+    .replace("Thursday", "四")
+    .replace("Friday", "五")
+    .replace("Saturday", "六")
+    .replace("Sunday", "日");
+};
+
 export default function CampusMap({
   restaurants,
   lovedRestIds,
@@ -258,8 +371,14 @@ export default function CampusMap({
                   </div>
 
                   {/* Micro tooltip */}
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover:block bg-stone-800 text-white text-[8px] py-1 px-1.5 rounded-lg shadow-lg z-50 whitespace-nowrap opacity-95">
-                    ⭐ {r.rating} | 🚶 {r.walking_distance} mins | NT$ {r.avg_price}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover:block bg-stone-800 text-white text-[8px] py-1.5 px-2 rounded-lg shadow-lg z-50 whitespace-nowrap opacity-95 text-left">
+                    <div>⭐ {r.rating} | 🚶 {r.walking_distance} mins | NT$ {r.avg_price}</div>
+                    <div className={isRestaurantOpenNow((r as any).business_hours) ? "text-emerald-300" : "text-rose-300"}>
+                      {isRestaurantOpenNow((r as any).business_hours) ? "🟢 營業中" : "🔴 目前未營業"}
+                    </div>
+                    <div className="max-w-[220px] truncate">
+                      🕒 {simplifyBusinessHour(getTodayBusinessHour(r.business_hours))}
+                    </div>
                   </div>
                 </button>
               );

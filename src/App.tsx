@@ -70,6 +70,101 @@ const normalizeRestaurant = (raw: any, fallbackId = 0): Restaurant => {
   };
 };
 
+const getTodayBusinessHour = (businessHours?: string[]) => {
+  if (!Array.isArray(businessHours) || businessHours.length === 0) {
+    return "營業時間待補";
+  }
+
+  const today = new Date().getDay();
+  // JS: Sunday=0, Monday=1...
+  // Google weekdayDescriptions 通常順序是 Monday ~ Sunday
+  const googleIndex = today === 0 ? 6 : today - 1;
+
+  return businessHours[googleIndex] || businessHours[0] || "營業時間待補";
+};
+
+const parseBusinessTimeToMinutes = (timeText: string): number | null => {
+  const text = timeText.trim().replace("：", ":");
+
+  const match = text.match(/(上午|下午|晚上|凌晨|中午)?\s*(\d{1,2})[:：](\d{2})/);
+  if (!match) return null;
+
+  const period = match[1] || "";
+  let hour = Number(match[2]);
+  const minute = Number(match[3]);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return null;
+  }
+
+  if ((period === "下午" || period === "晚上") && hour < 12) {
+    hour += 12;
+  }
+
+  if ((period === "上午" || period === "凌晨") && hour === 12) {
+    hour = 0;
+  }
+
+  if (period === "中午" && hour < 12) {
+    hour += 12;
+  }
+
+  return hour * 60 + minute;
+};
+
+const isRestaurantOpenNow = (businessHours?: string[]) => {
+  const todayText = getTodayBusinessHour(businessHours);
+
+  if (!todayText || todayText === "營業時間待補") {
+    return false;
+  }
+
+  if (/24\s*小時|24\s*hours|Open\s*24\s*hours/i.test(todayText)) {
+    return true;
+  }
+
+  if (/休息|公休|未營業|Closed/i.test(todayText)) {
+    return false;
+  }
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const timePart = todayText.includes(":")
+    ? todayText.slice(todayText.indexOf(":") + 1)
+    : todayText;
+
+  const segments = timePart
+    .replace(/[–—－～~至到]/g, "-")
+    .split(/[、,，;；]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  for (const segment of segments) {
+    const parts = segment.split("-").map(s => s.trim()).filter(Boolean);
+
+    if (parts.length < 2) continue;
+
+    const start = parseBusinessTimeToMinutes(parts[0]);
+    const end = parseBusinessTimeToMinutes(parts[1]);
+
+    if (start === null || end === null) continue;
+
+    // 跨日營業，例如 18:00 - 02:00
+    if (end <= start) {
+      if (nowMinutes >= start || nowMinutes < end) {
+        return true;
+      }
+    } else {
+      if (nowMinutes >= start && nowMinutes < end) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<"home" | "explore" | "merchant">("home");
   const [homeSubMode, setHomeSubMode] = useState<"solo" | "group">("solo");
@@ -1404,6 +1499,20 @@ export default function App() {
                               ❤️ 最愛認證店
                             </span>
                           )}
+
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-lg border ${
+                            isRestaurantOpenNow((recommendationResult.restaurant as any).business_hours)
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-100"
+                              : "bg-rose-50 text-rose-800 border-rose-100"
+                          }`}>
+                            {isRestaurantOpenNow((recommendationResult.restaurant as any).business_hours)
+                              ? "🟢 營業中"
+                              : "🔴 目前未營業"}
+                          </span>
+
+                          <span className="text-[9px] bg-amber-50 text-amber-800 font-bold px-1.5 py-0.5 rounded-lg border border-amber-100">
+                            🕒 {getTodayBusinessHour((recommendationResult.restaurant as any).business_hours)}
+                          </span>
                         </div>
                       </div>
                     </div>
