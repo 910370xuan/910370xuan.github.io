@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net default - deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && (
+        request.auth.token.email_verified == true ||
+        request.auth.token.email == '910370ctgs@gmail.com'
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == '910370ctgs@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin')
+      );
+    }
+
+    function isMerchant() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'merchant'
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 1. Users collection rules
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId) && (
+        // Prevent users from escalating their own role to admin on creation
+        (request.auth.token.email == '910370ctgs@gmail.com' && incoming().role == 'admin') ||
+        (incoming().role == 'user') ||
+        (incoming().role == 'merchant')
+      ) && incoming().user_id == userId;
+      
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && (incoming().role == existing().role || incoming().role == 'merchant' || incoming().role == 'user')) ||
+        isAdmin()
+      );
+    }
+
+    // 2. Restaurants collection rules
+    match /restaurants/{restaurantId} {
+      allow read: if true; // Public listings
+      allow create: if isSignedIn() && isEmailVerified() && (
+        isAdmin() || 
+        (isMerchant() && incoming().owner_uid == request.auth.uid)
+      );
+      allow update: if isSignedIn() && isEmailVerified() && (
+        isAdmin() || 
+        (isMerchant() && existing().owner_uid == request.auth.uid && incoming().owner_uid == existing().owner_uid)
+      );
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // 3. Menu items subcollection rules (Relational master-gate sync)
+    match /restaurants/{restaurantId}/menu_items/{menuItemId} {
+      allow read: if true; // Public menus
+      allow create, update, delete: if isSignedIn() && isEmailVerified() && (
+        isAdmin() || (
+          isMerchant() && 
+          exists(/databases/$(database)/documents/restaurants/$(restaurantId)) && 
+          get(/databases/$(database)/documents/restaurants/$(restaurantId)).data.owner_uid == request.auth.uid
+        )
+      );
+    }
+
+    match /{path=**}/menu_items/{menuItemId} {
+      allow read: if true; // Allow collectionGroup queries
+    }
+
+    // 4. Group Rooms collection rules
+    match /group_rooms/{roomId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().owner_id == request.auth.uid;
+      allow update: if isSignedIn(); // Allow participants to enter data/preferences
+      allow delete: if isSignedIn() && (isAdmin() || existing().owner_id == request.auth.uid);
+    }
+
+    // 5. User Reports collection rules
+    match /reports/{reportId} {
+      allow read: if true; // Permit public views of active campus issues/updates
+      allow create: if isSignedIn() && incoming().report_id == reportId;
+      allow update: if isSignedIn() && isAdmin(); // Only admins resolve reports
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // 6. Proposals collection rules
+    match /proposals/{proposalId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.submitter_uid == request.auth.uid);
+    }
+
+    // 7. Deals collection rules
+    match /deals/{dealId} {
+      allow read: if true; // Public restaurant/merchant deal listings
+      allow create, update, delete: if isSignedIn() && (isAdmin() || isMerchant());
+    }
+  }
+}

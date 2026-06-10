@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile containing identity, preferences, exclusions, and roles.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "email": { "type": "string" },
+        "username": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "merchant", "user"] },
+        "preference_tags": { "type": "array" },
+        "blacklist_rest_ids": { "type": "array" },
+        "blacklist_ingredients": { "type": "array" },
+        "blacklist_categories": { "type": "array" },
+        "blacklist_meals": { "type": "array" }
+      },
+      "required": ["user_id", "email", "username", "role"]
+    },
+    "Restaurant": {
+      "title": "Restaurant Info",
+      "description": "NCU school campus surrounding physical food provider node.",
+      "type": "object",
+      "properties": {
+        "restaurant_id": { "type": "integer" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "walking_distance": { "type": "integer" },
+        "rating": { "type": "number" },
+        "popularity": { "type": "integer" },
+        "avg_price": { "type": "integer" },
+        "is_open": { "type": "boolean" },
+        "is_group_friendly": { "type": "boolean" },
+        "has_ac": { "type": "boolean" },
+        "has_seats": { "type": "boolean" },
+        "is_vegetarian": { "type": "boolean" },
+        "has_takeout": { "type": "boolean" },
+        "is_midnight_snack": { "type": "boolean" },
+        "img_url": { "type": "string" },
+        "location_desc": { "type": "string" },
+        "signature_dishes": { "type": "array" },
+        "owner_uid": { "type": "string" }
+      },
+      "required": ["restaurant_id", "name", "category"]
+    },
+    "MenuItem": {
+      "title": "Menu Item Dish Details",
+      "description": "A food offering bound to a restaurant.",
+      "type": "object",
+      "properties": {
+        "menu_id": { "type": "integer" },
+        "restaurant_id": { "type": "integer" },
+        "item_name": { "type": "string" },
+        "price": { "type": "integer" },
+        "spicy_level": { "type": "string" },
+        "popularity_score": { "type": "number" },
+        "tags": { "type": "array" },
+        "ingredients": { "type": "array" },
+        "img_url": { "type": "string" },
+        "size_desc": { "type": "string" }
+      },
+      "required": ["menu_id", "restaurant_id", "item_name", "price"]
+    },
+    "GroupRoom": {
+      "title": "Group Decider Room Info",
+      "description": "Room for multi-user food group aggregation.",
+      "type": "object",
+      "properties": {
+        "room_id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "owner_name": { "type": "string" },
+        "members": { "type": "array" }
+      },
+      "required": ["room_id", "owner_id", "owner_name", "members"]
+    },
+    "UserReport": {
+      "title": "User Food Issue Report",
+      "description": "User correction request on a restaurant closing or prices.",
+      "type": "object",
+      "properties": {
+        "report_id": { "type": "string" },
+        "restaurant_id": { "type": "integer" },
+        "restaurant_name": { "type": "string" },
+        "report_type": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["report_id", "restaurant_id", "report_type", "status"]
+    },
+    "Deals": {
+      "title": "Deals Offers",
+      "description": "Discount offers or hot sales posted by campus restaurants or merchants.",
+      "type": "object",
+      "properties": {
+        "deal_id": { "type": "string" },
+        "restaurant_id": { "type": "integer" },
+        "restaurant_name": { "type": "string" },
+        "offer": { "type": "string" },
+        "code": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["deal_id", "restaurant_id", "offer"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles database partitioned by Firebase Auth uid"
+    },
+    "/deals/{dealId}": {
+      "schema": "Deals",
+      "description": "Discount codes or offers published by merchants on campus"
+    },
+    "/restaurants/{restaurantId}": {
+      "schema": "Restaurant",
+      "description": "A collection containing school restaurants info nodes"
+    },
+    "/restaurants/{restaurantId}/menu_items/{menuItemId}": {
+      "schema": "MenuItem",
+      "description": "The relational subcollection for dishes linked to a restaurnt"
+    },
+    "/group_rooms/{roomId}": {
+      "schema": "GroupRoom",
+      "description": "Active multiplayer lobby/rooms syncing preference aggregation"
+    },
+    "/reports/{reportId}": {
+      "schema": "UserReport",
+      "description": "Reports by students about restaurant listings corrections"
+    }
+  }
+}

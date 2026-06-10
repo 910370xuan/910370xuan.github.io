@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- 1. 確保語言設定正確 (例如繁體中文) -->
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- 2. 加入網站標題與描述 (對 SEO 非常重要) -->
+    <title>我的 Google AI Studio 應用</title>
+    <meta name="description" content="這是一個由 Google AI Studio 驅動的現代化、高效能應用程式。" />
+    
+    <!-- 3. 加入主題顏色 (讓手機瀏覽器上方的狀態列顏色與你的網站一致) -->
+    <meta name="theme-color" content="#2563eb" /> <!-- 這裡使用藍色為例 -->
+    
+    <!-- 4. 加入網站圖示 (Favicon) -->
+    <!-- <link rel="icon" type="image/svg+xml" href="/favicon.svg" /> -->
+    
+    <!-- 5. 加入社群分享預覽標籤 (Open Graph) -->
+    <meta property="og:title" content="我的 Google AI Studio 應用" />
+    <meta property="og:description" content="這是一個由 Google AI Studio 驅動的現代化應用程式。" />
+    <meta property="og:type" content="website" />
+    
+  </head>
+  <body>
+    <div id="root">
+      <!-- 6. 加入載入狀態：在 React 程式碼下載並執行前，讓使用者先看到載入畫面，避免白畫面 -->
+      <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; color: #64748b; background-color: #f8fafc;">
+        載入中...
+      </div>
+    </div>
+    
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

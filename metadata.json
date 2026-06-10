@@ -1,0 +1,10 @@
+{
+  "name": "Remix: Remix: 中央美食決策助手",
+  "description": "結合 AI 智慧推薦、個人飲食排雷與群組最大公約數共識的多功能校園美食推薦系統 (NCU Smart Food Recommender)。",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
