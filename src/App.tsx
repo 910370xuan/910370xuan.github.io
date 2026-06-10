@@ -35,6 +35,41 @@ const DEFAULT_PERSONAS = [
   { id: "p3", name: "後門宵夜街攤友阿姨", desc: "本土熱情、說話常常加上『底迪/美眉』，誠懇公道，大推便宜能填飽肚子的大碗好康。", prompt: "熱情攤販阿姨" }
 ];
 
+
+const safeNumber = (value: unknown, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const formatFixed = (value: unknown, digits = 1, fallback = 0) => {
+  return safeNumber(value, fallback).toFixed(digits);
+};
+
+const normalizeRestaurant = (raw: any, fallbackId = 0): Restaurant => {
+  return {
+    ...raw,
+    restaurant_id: safeNumber(raw?.restaurant_id, fallbackId),
+    name: typeof raw?.name === "string" && raw.name.trim() ? raw.name : "未命名店家",
+    category: typeof raw?.category === "string" && raw.category.trim() ? raw.category : "台式",
+    walking_distance: safeNumber(raw?.walking_distance, 8),
+    rating: safeNumber(raw?.rating, 4.2),
+    popularity: safeNumber(raw?.popularity, 70),
+    avg_price: safeNumber(raw?.avg_price, 100),
+    is_open: typeof raw?.is_open === "boolean" ? raw.is_open : true,
+    is_group_friendly: typeof raw?.is_group_friendly === "boolean" ? raw.is_group_friendly : true,
+    has_ac: typeof raw?.has_ac === "boolean" ? raw.has_ac : true,
+    has_seats: typeof raw?.has_seats === "boolean" ? raw.has_seats : true,
+    is_vegetarian: typeof raw?.is_vegetarian === "boolean" ? raw.is_vegetarian : false,
+    has_takeout: typeof raw?.has_takeout === "boolean" ? raw.has_takeout : true,
+    is_midnight_snack: typeof raw?.is_midnight_snack === "boolean" ? raw.is_midnight_snack : false,
+    img_url: typeof raw?.img_url === "string" ? raw.img_url : "",
+    location_desc: typeof raw?.location_desc === "string" && raw.location_desc.trim() ? raw.location_desc : "中央大學周邊",
+    signature_dishes: Array.isArray(raw?.signature_dishes) ? raw.signature_dishes : [],
+    latitude: Number.isFinite(Number(raw?.latitude)) ? Number(raw.latitude) : undefined,
+    longitude: Number.isFinite(Number(raw?.longitude)) ? Number(raw.longitude) : undefined,
+  };
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<"home" | "explore" | "merchant">("home");
   const [homeSubMode, setHomeSubMode] = useState<"solo" | "group">("solo");
@@ -215,7 +250,9 @@ export default function App() {
       const restSnap = await getDocs(collection(db, "restaurants"));
       let restList: Restaurant[] = [];
       restSnap.forEach(doc => {
-        restList.push(doc.data() as Restaurant);
+        const raw = doc.data();
+        const fallbackId = Number(raw?.restaurant_id ?? doc.id) || restList.length + 1;
+        restList.push(normalizeRestaurant(raw, fallbackId));
       });
       if (restList.length > 0) {
         setRestaurants(restList.sort((a,b) => a.restaurant_id - b.restaurant_id));
@@ -1337,7 +1374,7 @@ export default function App() {
                         />
                         
                         <div className="absolute bottom-2 left-2 bg-stone-900/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[10px] font-semibold">
-                          ⭐ {recommendationResult.restaurant.rating.toFixed(1)} / {getRestaurantArea(recommendationResult.restaurant.restaurant_id, recommendationResult.restaurant.location_desc)}
+                          ⭐ {formatFixed(recommendationResult.restaurant.rating, 1, 4.2)} / {getRestaurantArea(recommendationResult.restaurant.restaurant_id, recommendationResult.restaurant.location_desc)}
                         </div>
                       </div>
 
